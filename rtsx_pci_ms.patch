@@ -1,0 +1,137 @@
+diff --git a/drivers/memstick/host/rtsx_pci_ms.c b/drivers/memstick/host/rtsx_pci_ms.c
+index 25f8f93..6999e0e 100644
+--- a/drivers/memstick/host/rtsx_pci_ms.c
++++ b/drivers/memstick/host/rtsx_pci_ms.c
+@@ -27,6 +27,9 @@
+ #include <linux/mfd/rtsx_pci.h>
+ #include <asm/unaligned.h>
+ 
++#define DRIVER_VERSION "0.1-rh1"
++MODULE_VERSION(DRIVER_VERSION);
++
+ struct realtek_pci_ms {
+ 	struct platform_device	*pdev;
+ 	struct rtsx_pcr		*pcr;
+@@ -408,7 +411,7 @@ static void rtsx_pci_ms_handle_req(struct work_struct *work)
+ 
+ 	if (!host->req) {
+ 		do {
+-			rc = memstick_next_req(msh, &host->req);
++			rc = memstick_next_req_dup(msh, &host->req);
+ 			dev_dbg(ms_dev(host), "next req %d\n", rc);
+ 
+ 			if (!rc)
+@@ -501,7 +504,7 @@ static int rtsx_pci_ms_suspend(struct platform_device *pdev, pm_message_t state)
+ 
+ 	dev_dbg(ms_dev(host), "--> %s\n", __func__);
+ 
+-	memstick_suspend_host(msh);
++	memstick_suspend_host_dup(msh);
+ 	return 0;
+ }
+ 
+@@ -512,7 +515,7 @@ static int rtsx_pci_ms_resume(struct platform_device *pdev)
+ 
+ 	dev_dbg(ms_dev(host), "--> %s\n", __func__);
+ 
+-	memstick_resume_host(msh);
++	memstick_resume_host_dup(msh);
+ 	return 0;
+ }
+ 
+@@ -527,7 +530,7 @@ static void rtsx_pci_ms_card_event(struct platform_device *pdev)
+ {
+ 	struct realtek_pci_ms *host = platform_get_drvdata(pdev);
+ 
+-	memstick_detect_change(host->msh);
++	memstick_detect_change_dup(host->msh);
+ }
+ 
+ static int rtsx_pci_ms_drv_probe(struct platform_device *pdev)
+@@ -548,7 +551,7 @@ static int rtsx_pci_ms_drv_probe(struct platform_device *pdev)
+ 	dev_dbg(&(pdev->dev),
+ 			": Realtek PCI-E Memstick controller found\n");
+ 
+-	msh = memstick_alloc_host(sizeof(*host), &pdev->dev);
++	msh = memstick_alloc_host_dup(sizeof(*host), &pdev->dev);
+ 	if (!msh)
+ 		return -ENOMEM;
+ 
+@@ -567,9 +570,9 @@ static int rtsx_pci_ms_drv_probe(struct platform_device *pdev)
+ 	msh->set_param = rtsx_pci_ms_set_param;
+ 	msh->caps = MEMSTICK_CAP_PAR4;
+ 
+-	rc = memstick_add_host(msh);
++	rc = memstick_add_host_dup(msh);
+ 	if (rc) {
+-		memstick_free_host(msh);
++		memstick_free_host_dup(msh);
+ 		return rc;
+ 	}
+ 
+@@ -602,15 +605,15 @@ static int rtsx_pci_ms_drv_remove(struct platform_device *pdev)
+ 
+ 		host->req->error = -ENOMEDIUM;
+ 		do {
+-			rc = memstick_next_req(msh, &host->req);
++			rc = memstick_next_req_dup(msh, &host->req);
+ 			if (!rc)
+ 				host->req->error = -ENOMEDIUM;
+ 		} while (!rc);
+ 	}
+ 	mutex_unlock(&host->host_mutex);
+ 
+-	memstick_remove_host(msh);
+-	memstick_free_host(msh);
++	memstick_remove_host_dup(msh);
++	memstick_free_host_dup(msh);
+ 
+ 	dev_dbg(&(pdev->dev),
+ 		": Realtek PCI-E Memstick controller has been removed\n");
+diff --git a/include/linux/memstick.h b/include/linux/memstick.h
+index 690c35a..834db25 100644
+--- a/include/linux/memstick.h
++++ b/include/linux/memstick.h
+@@ -306,28 +306,28 @@ struct memstick_driver {
+ 	struct device_driver      driver;
+ };
+ 
+-int memstick_register_driver(struct memstick_driver *drv);
+-void memstick_unregister_driver(struct memstick_driver *drv);
++int memstick_register_driver_dup(struct memstick_driver *drv);
++void memstick_unregister_driver_dup(struct memstick_driver *drv);
+ 
+-struct memstick_host *memstick_alloc_host(unsigned int extra,
++struct memstick_host *memstick_alloc_host_dup(unsigned int extra,
+ 					  struct device *dev);
+ 
+-int memstick_add_host(struct memstick_host *host);
+-void memstick_remove_host(struct memstick_host *host);
+-void memstick_free_host(struct memstick_host *host);
+-void memstick_detect_change(struct memstick_host *host);
+-void memstick_suspend_host(struct memstick_host *host);
+-void memstick_resume_host(struct memstick_host *host);
++int memstick_add_host_dup(struct memstick_host *host);
++void memstick_remove_host_dup(struct memstick_host *host);
++void memstick_free_host_dup(struct memstick_host *host);
++void memstick_detect_change_dup(struct memstick_host *host);
++void memstick_suspend_host_dup(struct memstick_host *host);
++void memstick_resume_host_dup(struct memstick_host *host);
+ 
+-void memstick_init_req_sg(struct memstick_request *mrq, unsigned char tpc,
++void memstick_init_req_dup_sg(struct memstick_request *mrq, unsigned char tpc,
+ 			  const struct scatterlist *sg);
+-void memstick_init_req(struct memstick_request *mrq, unsigned char tpc,
++void memstick_init_req_dup(struct memstick_request *mrq, unsigned char tpc,
+ 		       const void *buf, size_t length);
+-int memstick_next_req(struct memstick_host *host,
++int memstick_next_req_dup(struct memstick_host *host,
+ 		      struct memstick_request **mrq);
+-void memstick_new_req(struct memstick_host *host);
++void memstick_new_req_dup(struct memstick_host *host);
+ 
+-int memstick_set_rw_addr(struct memstick_dev *card);
++int memstick_set_rw_addr_dup(struct memstick_dev *card);
+ 
+ static inline void *memstick_priv(struct memstick_host *host)
+ {
